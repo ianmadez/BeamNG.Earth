@@ -29,11 +29,16 @@ def lang_for(country):
     return LANG_OF_COUNTRY.get(str(country or "").upper(), "en")
 
 
-def url(q, lat=None, lon=None, limit=LIMIT, lang="en"):
-    """The Photon request for text q, biased toward (lat, lon) when given. Pure."""
+def url(q, lat=None, lon=None, limit=LIMIT, lang="en", zoom=None, bias=None):
+    """The Photon request for text q, biased toward (lat, lon) when given (zoom: how wide a bias area, bias: how
+    hard it pulls, 0..1). Pure."""
     params = [("q", q.strip()), ("limit", str(int(limit))), ("lang", lang)]
     if lat is not None and lon is not None:
         params += [("lat", f"{float(lat):.4f}"), ("lon", f"{float(lon):.4f}")]
+        if zoom is not None:
+            params.append(("zoom", str(int(zoom))))
+        if bias is not None:
+            params.append(("location_bias_scale", f"{float(bias):.2f}"))
     return PHOTON_URL + "?" + urllib.parse.urlencode(params)
 
 
@@ -108,14 +113,16 @@ def error_text(e, now=None):
     return "Address search gave an answer the map cannot read"
 
 
-def search(q, lat=None, lon=None, net=None, country=None):
-    """Results for q (blocking; [] for a short query), names in country's language (lang_for). Raises
-    netfetch.FetchError on network trouble."""
+def search(q, lat=None, lon=None, net=None, country=None, zoom=None, bias=None):
+    """Results for q (blocking; [] for a short query), names in country's language (lang_for), the search biased to
+    (lat, lon) when given (zoom: how wide a bias area, bias: how hard it pulls). Raises netfetch.FetchError on
+    network trouble."""
     q = (q or "").strip()
     if len(q) < MIN_CHARS:
         return []
     net = net if net is not None else netfetch.default_fetcher()
-    return parse(json.loads(net.get(url(q, lat, lon, lang=lang_for(country)), kind="demand").body.decode("utf-8")))
+    u = url(q, lat, lon, lang=lang_for(country), zoom=zoom, bias=bias)
+    return parse(json.loads(net.get(u, kind="demand").body.decode("utf-8")))
 
 
 # ------------------------------------------------------------------------------------------- where am I
@@ -124,6 +131,50 @@ def search(q, lat=None, lon=None, net=None, country=None):
 # reverse geocoding is no longer asked (GitHub #602: komoot refused the app's requests; the user, 2026-11-03: the
 # status bar's names come from local data, the search box keeps Photon).
 STREET_M = 40.0                 # the nearest named road within this is "the street"
+
+
+# ------------------------------------------------------------------- a dropped pin's name (the phone)
+# Nominatim's reverse lookup, not Photon's: komoot refused the app's requests and upstream dropped its reverse use
+# (GitHub #602), so the status bar reads local names now - but the phone still has to name the pin it drops. Same
+# host and policy as its fallback search: one request per pin, the OSM credit already on screen.
+NOMINATIM_REVERSE_URL = "https://nominatim.openstreetmap.org/reverse"
+
+
+def point_url(lat, lon, lang="en"):
+    """The Nominatim reverse request for the exact (lat, lon), to name a dropped pin. Pure."""
+    return NOMINATIM_REVERSE_URL + "?" + urllib.parse.urlencode(
+        [("lat", f"{float(lat):.6f}"), ("lon", f"{float(lon):.6f}"), ("format", "jsonv2"),
+         ("accept-language", lang), ("zoom", "18")])
+
+
+def parse_point(data):
+    """(name, detail) of a Nominatim reverse answer: the house number and road, else the place; then the town, state
+    and country. Pure."""
+    if not isinstance(data, dict):
+        return "", ""
+    a = data.get("address") or {}
+    road = " ".join(v for v in (a.get("road"), a.get("house_number")) if v)   # "Calle Mayor 5"
+    # the street address first (a pin is most useful saying "Calle Mayor 5"), else the place's own name
+    name = (road or data.get("name") or a.get("suburb") or a.get("village") or a.get("town")
+            or a.get("city") or a.get("county") or a.get("state") or "")
+    if not name:
+        name = str(data.get("display_name") or "").split(",")[0].strip()
+    parts = []
+    if road and road != name:
+        parts.append(road)
+    for k in ("suburb", "village", "town", "city", "county", "state", "country"):
+        v = a.get(k)
+        if v and v != name and v not in parts:
+            parts.append(v)
+        if len(parts) >= 3:
+            break
+    return str(name)[:80], ", ".join(parts)[:80]
+
+
+def point_name(lat, lon, net=None):
+    """(name, detail) of the place at (lat, lon) (blocking). Raises netfetch.FetchError on network trouble."""
+    net = net if net is not None else netfetch.default_fetcher()
+    return parse_point(json.loads(net.get(point_url(lat, lon), kind="demand").body.decode("utf-8")))
 
 
 def nearest_street(roads_layers, lat, lon, max_m=STREET_M):

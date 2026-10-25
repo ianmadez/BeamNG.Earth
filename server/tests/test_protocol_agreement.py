@@ -41,6 +41,11 @@ docs/V1_2_DESIGN.md §7 as amended by §12; server/README.md documents the same 
   - live retexture (--colormatch / --deshadow): the 'far_retex' message (additive the same way), sent
     in a session whose colour-match regions turn ready once the far field is shown; core.lua hands it
     to farfield.onRetex, which reads anchorId / key / texture.
+  - the phone (phoneapi.py, earthPhone.lua; additive): 'phone_search' -> 'phone_search_result' (the
+    saved places of the user folder first, then Photon nearest the car, each with distance_km),
+    'phone_reverse' -> 'phone_reverse_result' (a dropped pin's name), and 'route' gains steps,
+    'route_result' its [{at, dist, dur, name, type, modifier}] a phone destination asks for with the
+    GPS's own single OSRM request.
 """
 import json
 import math
@@ -166,9 +171,14 @@ MOD_TO_SERVER = {
     "area_add": {"id": F(int), "s": F(NUM, OPT), "w": F(NUM, OPT), "n": F(NUM, OPT), "e": F(NUM, OPT),
                  "route": F(str, OPT), "half": F(NUM, OPT), "name": F(str, OPT), "mode": F(str, OPT)},
     "area_cmd": {"id": F(int), "area": F(str), "op": F(str)},
+    # the phone's search (phoneapi.py; additive): the saved places, then Photon, with the distance to each
+    "phone_search": {"id": F(int), "q": F(str), "lat": F(NUM, OPT), "lon": F(NUM, OPT)},
+    "phone_reverse": {"id": F(int), "lat": F(NUM), "lon": F(NUM)},   # a dropped pin's name (phoneapi.reverse)
     "route": {"id": F(int), "lat0": F(NUM), "lon0": F(NUM), "lat1": F(NUM), "lon1": F(NUM),
               "bearing": F(NUM, OPT),    # the GPS (routing.py); bearing: the car's heading, the route starts that way
-              "download": F(str, OPT)},  # the "Download along route" setting: off / ahead / route (route_download)
+              "download": F(str, OPT),   # the "Download along route" setting: off / ahead / route (route_download)
+              "steps": F(bool, OPT),     # the phone's turn-by-turn steps asked with the route (routing.parse_steps)
+              "alternatives": F(int, OPT)},   # the phone's route choice: how many routes to ask for
     "where": {"id": F(int), "lat": F(NUM), "lon": F(NUM), "online": F(bool)},   # the status bar (geocode.py)
     "server_list": {},                  # the BeamNG.Earth servers for the tab in BeamMP's browser (serverlist.lua)
     # BeamMP shared world generation v2 (mpsession.lua <-> mpshare.py): our share code asked once a session, the
@@ -209,10 +219,15 @@ SERVER_TO_MOD = {
     # (at most every areas.STATUS_S); result: the answer to an area_add / area_cmd
     "areas": {"areas": F(list), "pinnedBytes": F(int, OPT), "result": F(dict, OPT)},
     "route_result": {"id": F(int), "points": F(list), "dist": F(NUM), "dur": F(NUM), "error": F(str, OPT),
-                      "elev": F((list, dict), OPT)},  # OSRM; elev: the map's profile (routing.resample, dem.sample)
+                     "elev": F((list, dict), OPT),  # OSRM; elev: the map's profile (routing.resample, dem.sample)
+                     "steps": F(list, OPT),  # the phone's turn-by-turn steps [{at, dist, dur, name, type, modifier}]
+                     "routes": F(list, OPT)},  # the phone's route choices [{points, dist, dur, steps, tag}]
     "route_download": {"total": F(int), "done": F(int), "active": F(bool)},
     # the blocks built already round the player (follow.preferReady takes one instead of its own target)
     "terrain_ready_set": {"anchorId": F(int), "centres": F(list)},  # routeahead.py: the route's corridor
+    "phone_search_result": {"id": F(int), "results": F(list), "error": F(str, OPT)},   # phoneapi.search
+    "phone_reverse_result": {"id": F(int), "name": F(str), "detail": F(str, OPT),
+                             "error": F(str, OPT)},   # phoneapi.reverse (a dropped pin)
     "update": {"current": F(str), "latest": F(str), "url": F(str),   # a newer version on GitHub (updates.py)
                "dev": F(bool, OPT)},        # (a development build's check: whether the newer one is one too)
     "update_status": {"state": F(str), "text": F(str), "done": F(int, OPT), "total": F(int, OPT),
@@ -374,6 +389,7 @@ EXERCISED_ELSEWHERE = {"far_retex", "roads_tile", "roads_drop",   # roads: needs
                        "area_plan_result", "areas",                  # saved areas: a Server with a Cache (test_areas)
                        "route_download",                             # only when the GPS plans a route (routeahead.py)
                        "terrain_ready_set",                          # only to a fast player's mod that says readySet
+                       "phone_search_result", "phone_reverse_result",   # the phone's places (phoneapi.py)
                        "server_list",                                # only when the BeamMP tab asks (online)
                        "share_info", "share_out"}                    # only in a BeamMP session (test_mpshare)
 # events the mod's net.lua makes up itself (not on the wire)
