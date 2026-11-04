@@ -171,8 +171,9 @@ MOD_TO_SERVER = {
     "area_add": {"id": F(int), "s": F(NUM, OPT), "w": F(NUM, OPT), "n": F(NUM, OPT), "e": F(NUM, OPT),
                  "route": F(str, OPT), "half": F(NUM, OPT), "name": F(str, OPT), "mode": F(str, OPT)},
     "area_cmd": {"id": F(int), "area": F(str), "op": F(str)},
-    # the phone's search (phoneapi.py; additive): the saved places, then Photon, with the distance to each
-    "phone_search": {"id": F(int), "q": F(str), "lat": F(NUM, OPT), "lon": F(NUM, OPT)},
+    # the phone's search (phoneapi.py; additive): the saved places, then Photon, with the distance to each;
+    # full: an explicit search (Enter / retry), which may fall back to Nominatim if Photon cannot be asked
+    "phone_search": {"id": F(int), "q": F(str), "lat": F(NUM, OPT), "lon": F(NUM, OPT), "full": F(bool, OPT)},
     "phone_reverse": {"id": F(int), "lat": F(NUM), "lon": F(NUM)},   # a dropped pin's name (phoneapi.reverse)
     "route": {"id": F(int), "lat0": F(NUM), "lon0": F(NUM), "lat1": F(NUM), "lon1": F(NUM),
               "bearing": F(NUM, OPT),    # the GPS (routing.py); bearing: the car's heading, the route starts that way

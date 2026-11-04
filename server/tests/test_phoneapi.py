@@ -36,14 +36,19 @@ OSRM = {"code": "Ok", "routes": [{
 class FakeNet:
     """netfetch's .get(url, kind) -> .body: the Photon answer, the OSRM answer, a reverse answer, or a failure."""
 
-    def __init__(self, photon=PHOTON, osrm=OSRM, fail=None, reverse=None):
+    def __init__(self, photon=PHOTON, osrm=OSRM, fail=None, reverse=None, nominatim=None, photon_fail=None):
         self.photon, self.osrm, self.fail, self.reverse = photon, osrm, fail, reverse
+        self.nominatim, self.photon_fail = nominatim, photon_fail
         self.calls = []
 
     def get(self, url, kind="demand", lane=None):
         self.calls.append(url)
         if self.reverse is not None and "/reverse" in url:
             return _Reply(self.reverse)
+        if self.nominatim is not None and "nominatim" in url:
+            return _Reply(self.nominatim)
+        if self.photon_fail is not None and "photon.komoot.io/api" in url:
+            raise self.photon_fail
         if self.fail:
             raise netfetch.FetchError(self.fail)
         return _Reply(self.osrm if "/route/v1/" in url else self.photon)
@@ -57,6 +62,23 @@ class _Reply:
 REVERSE = {"name": "Calle Mayor", "display_name": "Calle Mayor 5, Cáceres, Extremadura, Spain",
            "address": {"house_number": "5", "road": "Calle Mayor", "city": "Cáceres",
                        "state": "Extremadura", "country": "Spain"}}
+
+NOMINATIM = [
+    {"lat": "2.9114", "lon": "101.6049", "name": "Segi", "type": "village",
+     "display_name": "Segi, Sepang, Selangor, Malaysia"},
+    {"lat": "33.4255", "lon": "-111.9755", "name": "", "type": "office",
+     "display_name": "SEGI, South 48th Street, Tempe, Maricopa County, Arizona, United States"},
+]
+
+
+class _Raises:
+    """A net whose .get always raises exc (a status-carrying failure, as netfetch's do)."""
+
+    def __init__(self, exc):
+        self.exc = exc
+
+    def get(self, url, kind="demand"):
+        raise self.exc
 
 
 class PhoneApiTest(unittest.TestCase):
@@ -109,7 +131,34 @@ class PhoneApiTest(unittest.TestCase):
     def test_search_survives_a_dead_network(self):
         results, error = phoneapi.search("home", 39.29, -76.61, self.user_dir, FakeNet(fail="offline"))
         self.assertEqual([r["name"] for r in results], ["Home"], "the saved places still answer")
-        self.assertIn("offline", error)
+        self.assertEqual(error, "offline")
+
+    def test_search_error_is_a_code_not_a_stack_trace(self):
+        """The drawer shows it, so it must be copy: no exception names, no URLs (it once said
+        "FetchFailed: https://photon.komoot.io/api/?q=...")."""
+        for exc, want in ((netfetch.FetchError("offline"), "offline"),
+                          (netfetch.FetchFailed("HTTP 403", url="https://photon.komoot.io/api/?q=x", status=403), "busy"),
+                          (netfetch.FetchFailed("HTTP 429", status=429), "busy"),
+                          (netfetch.FetchFailed("HTTP 500", status=500), "unavailable")):
+            self.assertEqual(phoneapi.reason(exc), want)
+            _, error = phoneapi.search("nowhere", None, None, self.user_dir, _Raises(exc))
+            self.assertEqual(error, want)
+            self.assertNotIn("http", error)
+            self.assertNotIn("Fetch", error)
+            self.assertLess(len(error), 20)
+
+    def test_a_failed_search_is_not_cached_for_long(self):
+        """A 403 from Photon is its own brief rate limit: two minutes of it would look like a broken phone."""
+        clock = [0.0]
+        net = FakeNet(fail="HTTP 403")
+        phoneapi.search_cached("segi", 2.9, 101.6, self.user_dir, net, clock=lambda: clock[0])
+        self.assertEqual(len(net.calls), 1)
+        clock[0] += phoneapi.FAIL_S / 2
+        phoneapi.search_cached("segi", 2.9, 101.6, self.user_dir, net, clock=lambda: clock[0])
+        self.assertEqual(len(net.calls), 1, "still inside FAIL_S: no second ask")
+        clock[0] += phoneapi.FAIL_S
+        phoneapi.search_cached("segi", 2.9, 101.6, self.user_dir, net, clock=lambda: clock[0])
+        self.assertEqual(len(net.calls), 2, "after FAIL_S it is asked again (the answer cache is much longer)")
 
     def test_search_limit(self):
         results, _ = phoneapi.search("main", None, None, self.user_dir, FakeNet(), limit=1)
@@ -147,6 +196,31 @@ class PhoneApiTest(unittest.TestCase):
         clock[0] += phoneapi.CACHE_S + 1
         phoneapi.search_cached("diner", 39.29, -76.61, self.user_dir, net, clock=lambda: clock[0])
         self.assertEqual(len(net.calls), calls + 1, "a stale answer is asked again")
+
+    def test_fallback_geocoder_only_for_an_explicit_search(self):
+        """Photon 403s for a while (its own rate limit) -> an explicit search falls back to Nominatim, once. A
+        keystroke (fallback=False) never does: Nominatim's policy forbids autocomplete."""
+        exc = netfetch.FetchFailed("HTTP 403", status=403)
+        typed = FakeNet(photon_fail=exc, nominatim=NOMINATIM)
+        results, error = phoneapi.search("segi", 2.9, 101.6, self.user_dir, typed)
+        self.assertEqual((results, error), ([], "busy"), "typing does not fall back")
+        self.assertFalse([c for c in typed.calls if "nominatim" in c])
+
+        asked = FakeNet(photon_fail=exc, nominatim=NOMINATIM)
+        results, error = phoneapi.search("segi", 2.9, 101.6, self.user_dir, asked, fallback=True)
+        self.assertIsNone(error, "the fallback answered")
+        self.assertTrue([c for c in asked.calls if "nominatim" in c])
+        self.assertEqual([r["name"] for r in results], ["Segi", "SEGI"], "name, else display_name's first part")
+        self.assertEqual(results[0]["detail"], "Sepang, Selangor, Malaysia")
+        self.assertIn("format=jsonv2", asked.calls[-1])
+
+    def test_fallback_gives_up_quietly_when_both_are_down(self):
+        exc = netfetch.FetchFailed("HTTP 403", status=403)
+        net = FakeNet(photon_fail=exc, nominatim=[])
+        net.get = lambda url, kind="demand": (_ for _ in ()).throw(exc)
+        results, error = phoneapi.search("home", 39.29, -76.61, self.user_dir, net, fallback=True)
+        self.assertEqual([r["name"] for r in results], ["Home"], "the saved places still answer")
+        self.assertEqual(error, "busy", "Photon's reason, not a second stack trace")
 
     def test_reverse_names_a_point(self):
         """The pin's name comes from Nominatim's reverse lookup (Photons's reverse was dropped upstream, GitHub #602)."""

@@ -4660,13 +4660,15 @@ class Connection:
         self.s.route_pool.submit(run)
 
     async def phone_search(self, msg):
-        """The phone's search {"id", "q", "lat"?, "lon"?} -> phone_search_result {"id", "results": [...], "error"?}:
-        the saved places of the user folder first, then Photon's places nearest first (phoneapi.search_cached)."""
+        """The phone's search {"id", "q", "lat"?, "lon"?, "full"?} -> phone_search_result {"id", "results": [...],
+        "error"?}: the saved places of the user folder first, then Photon's places nearest first
+        (phoneapi.search_cached). full: an explicit search (Enter / retry), so an unreachable Photon falls back to
+        Nominatim for this one request."""
         out = {"type": "phone_search_result", "id": msg.get("id"), "results": []}
         try:
             out["results"], error = await asyncio.get_running_loop().run_in_executor(
                 self.s.ui_pool, phoneapimod.search_cached, str(msg.get("q") or ""), msg.get("lat"), msg.get("lon"),
-                self.s.user_dir, self.s.net)
+                self.s.user_dir, self.s.net, phoneapimod.LIMIT, time.monotonic, bool(msg.get("full")))
             if error:
                 out["error"] = error
         except Exception as e:          # offline: the phone shows the saved places it has

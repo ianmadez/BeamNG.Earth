@@ -691,6 +691,44 @@ angular.module('beamng.apps')
           return (r.name || '').toLowerCase().indexOf(low) >= 0
         }).slice(0, RECENT_MAX)
       }
+      // A failed place search is copy, not a stack trace: the server sends a code (phoneapi.reason) and the drawer
+      // says what can be done about it. A raw "FetchFailed: https://photon..." once landed in the list.
+      var SEARCH_ERRORS = {
+        busy: 'Place search is busy. Tap to try again.',
+        offline: 'No connection to the place search. Tap to try again.',
+        unavailable: 'Place search is unavailable. Tap to try again.'
+      }
+      function results() { return (ui.search && ui.search.results) || [] }
+      function searchFailed() { return !!(ui.search && ui.search.error && !results().length) }
+      function searchPartial() { return !!(ui.search && ui.search.error && results().length) }
+      function searchEmpty() {
+        return !!(ui.search && !ui.search.pending && !ui.search.error && !results().length)
+      }
+      scope.searchFailed = searchFailed
+      scope.searchPartial = searchPartial
+      scope.searchEmpty = searchEmpty
+      scope.showRecents = function () { return scope.suggestions.length > 0 && !results().length }
+      scope.searchMessage = function () {
+        var s = ui.search
+        if (!s) return ''
+        if (s.error) return SEARCH_ERRORS[s.error] || SEARCH_ERRORS.unavailable
+        if (s.pending) return ''
+        return 'No places found' + (s.query ? ' for "' + s.query + '"' : '')
+      }
+      scope.retrySearch = function () {
+        var q = (scope.q || '').trim()
+        if (q.length < MIN_CHARS) return
+        if (typeTimer) clearTimeout(typeTimer)
+        askSearch(q, true)                 // a retry asks again, and may use the fallback geocoder
+      }
+      var lastQuery = ''          // a keystroke that changes nothing asks nothing (Photon's own limit is ~1 a second)
+      function askSearch(q, full) {
+        var t = (q || '').trim()
+        if (t.length < MIN_CHARS) return
+        if (!full && t === lastQuery) return
+        lastQuery = t
+        call('search', t, !!full)      // full: an explicit search, so the server may fall back to Nominatim
+      }
       function onInput(ev) {
         var q = ev.target.value || ''
         scope.q = q
@@ -698,8 +736,8 @@ angular.module('beamng.apps')
         parseCoord(q.trim())
         scope.$applyAsync()
         if (typeTimer) clearTimeout(typeTimer)
-        if (q.trim().length < MIN_CHARS) return
-        typeTimer = setTimeout(function () { call('search', q.trim()) }, TYPE_MS)
+        if (q.trim().length < MIN_CHARS) { lastQuery = ''; return }
+        typeTimer = setTimeout(function () { askSearch(q) }, TYPE_MS)
       }
       // a typed latitude, longitude: places.lua parses every format the big map accepts, so the phone offers the
       // same thing the big map's search does (and offers it first, before the network answers)
@@ -724,7 +762,7 @@ angular.module('beamng.apps')
           if (typeTimer) clearTimeout(typeTimer)
           var box = hostEl.querySelector('.bp-input')
           var q = ((box && box.value) || '').trim()
-          if (q.length >= MIN_CHARS) call('search', q)
+          if (q.length >= MIN_CHARS) { askSearch(q, true) }
           else if (scope.suggestions.length) scope.$applyAsync(function () { pick(scope.suggestions[0]) })
         } else if (ev.key === 'Escape' || ev.keyCode === 27) {
           scope.$applyAsync(function () { scope.searchOpen = false })

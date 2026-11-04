@@ -341,6 +341,29 @@
   font-weight: 500;
 }
 .bngPhone .bp-result.is-muted:active { background: transparent; }
+/* a failed place search: a sentence and a retry arrow (never the server's own words) */
+.bngPhone .bp-result.bp-fail {
+  gap: 9px;
+  color: #0b0b0c;
+  cursor: pointer;
+}
+.bngPhone .bp-result.bp-fail .bp-name { font-size: 13.5px; font-weight: 600; white-space: normal; }
+.bngPhone .bp-retry {
+  flex: 0 0 16px;
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: #0a84ff;
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.bngPhone .bp-note {
+  padding: 7px 14px 3px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #a34a00;
+}
 
 /* --- round buttons ------------------------------------------------------------------------- */
 .bngPhone .bp-round {

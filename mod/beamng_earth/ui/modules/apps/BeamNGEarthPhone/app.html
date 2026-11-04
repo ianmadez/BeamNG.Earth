@@ -48,16 +48,23 @@
             <div class="bp-result is-muted" ng-if="ui.search && ui.search.pending">
               Searching {{ui.search.query}}&hellip;
             </div>
+            <div class="bp-result bp-fail" ng-if="searchFailed()" ng-click="retrySearch()" title="Tap to try again">
+              <span class="bp-row-main">
+                <span class="bp-name">{{searchMessage()}}</span>
+              </span>
+              <svg class="bp-retry" viewBox="0 0 24 24">
+                <path d="M20.5 12a8.5 8.5 0 10-2.5 6" /><path d="M20.5 5.5v5h-5" />
+              </svg>
+            </div>
+            <div class="bp-note" ng-if="searchPartial()">Saved places only &mdash; {{searchMessage()}}</div>
             <div class="bp-result" ng-repeat="r in (ui.search ? ui.search.results : [])" ng-click="pick(r)">
               <span class="bp-row-main">
                 <span class="bp-name">{{r.name}}</span>
                 <span class="bp-meta">{{r.detail}}<span ng-if="r.distance_km !== null && r.distance_km !== undefined"> &middot; {{r.distance_km | number:1}} km</span></span>
               </span>
             </div>
-            <div class="bp-result is-muted" ng-if="ui.search && !ui.search.pending && !ui.search.results.length">
-              {{ui.search.error || 'No places found'}}
-            </div>
-            <div class="bp-group" ng-if="!ui.search && suggestions.length">
+            <div class="bp-result is-muted" ng-if="searchEmpty()">{{searchMessage()}}</div>
+            <div class="bp-group" ng-if="showRecents()">
               <div class="bp-group-label">Recent</div>
               <div class="bp-recents">
                 <div class="bp-result" ng-repeat="r in suggestions" ng-click="pick(r)">
@@ -71,7 +78,7 @@
                 </div>
               </div>
             </div>
-            <div class="bp-credit">Places: Photon by komoot &middot; &copy; OpenStreetMap</div>
+            <div class="bp-credit">Places: &copy; OpenStreetMap contributors</div>
           </div>
         </div>
 

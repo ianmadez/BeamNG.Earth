@@ -67,8 +67,7 @@ local answers, asked, state2 = {}, {}, { player = { lat = 39.29, lon = -76.61, x
 beamngEarth_core = {
   _state = function() return state2 end,
   requestPhoneReverse = function(id, lat, lon) asked[#asked + 1] = { id = id, lat = lat, lon = lon }; return true end,
-  takePhoneReverse = function(id) local r = answers[id]; answers[id] = nil; return r end }
-T.check(P.setPin(39.3, -76.6) == true, 'a double tap drops a pin')
+  takePhoneReverse = function(id) local r = answers[id]; answers[id] = nil; return r end }T.check(P.setPin(39.3, -76.6) == true, 'a double tap drops a pin')
 T.check(asked[1] and asked[1].lat == 39.3 and asked[1].lon == -76.6, 'the server is asked for its name')
 local pinPayload = P.state().pin
 T.check(pinPayload and pinPayload.lat == 39.3 and pinPayload.name == '', 'the pin shows before it is named')
@@ -82,6 +81,21 @@ T.check(pinPayload and pinPayload.name == 'Main Street 5' and pinPayload.detail 
 T.check(P.setPin('x', nil) == false, 'a bad point is no pin')
 beamngEarth_core = nil
 T.check(P.clearPin() == true and P.state().pin == nil, 'closing the card drops the pin')
+
+-- the search: a keystroke and an explicit search are told apart (only the explicit one may use the fallback geocoder)
+local sentSearches = {}
+beamngEarth_core = {
+  _state = function() return state2 end,
+  requestPhoneSearch = function(id, q, lat, lon, full)
+    sentSearches[#sentSearches + 1] = { q = q, full = full }
+    return true
+  end }
+T.check(P.search('segi') == true, 'a keystroke searches')
+T.check(sentSearches[1].q == 'segi' and sentSearches[1].full == nil, 'typing does not ask for the fallback')
+T.check(P.search('segi', true) == true, 'Enter searches')
+T.check(sentSearches[2].full == true, 'an explicit search may fall back to Nominatim')
+beamngEarth_core = nil
+T.check(P.search('segi') == false, 'no server: the search is not sent (and the app is told)')
 
 -- the speed tile (the graph keeps m/s, the country posts mph)
 T.check(P.limitTile(13.4112, true).value == 30 and P.limitTile(13.4112, true).unit == 'mph', '30 mph from 13.4 m/s')

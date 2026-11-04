@@ -23,6 +23,7 @@ EARTH_KM = 6371.0088
 BIAS_ZOOM = 12          # Photon's bias area around the car, and how hard it pulls (local suggestions first)
 BIAS_SCALE = 0.4
 CACHE_S = 120.0         # a query's answer is reused this long: typing a name asks once per few keystrokes
+FAIL_S = 8.0            # a failed ask is retried soon (Photon's 403s are its own brief rate limits, not outages)
 CACHE_MAX = 96
 _cache = {}             # (query, lat, lon) -> (monotonic time, results, error)
 
@@ -77,9 +78,31 @@ def _hit(name, lat, lon, detail, source, at):
             "distance_km": None if d is None else round(d, 2), "detail": detail, "source": source}
 
 
-def search(query, lat=None, lon=None, user_dir=None, net=None, limit=LIMIT):
+def reason(e):
+    """A short code for a failed place ask: "busy" / "unavailable" / "offline". Never an exception text or a URL:
+    the phone shows the code as user-facing copy (a raw "FetchFailed: https://photon.komoot.io/api/?q=..." was once
+    printed in the search drawer). Pure."""
+    status = getattr(e, "status", None)
+    if status in (403, 429):
+        return "busy"                   # the geocoder's own rate limit: it passes in a moment
+    if status:
+        return "unavailable"
+    return "offline"
+
+
+SEARCH_ERROR_TEXT = {
+    "busy": "the place search is busy, try again in a moment",
+    "offline": "the place search could not be reached",
+    "unavailable": "the place search is unavailable",
+}
+
+
+def search(query, lat=None, lon=None, user_dir=None, net=None, limit=LIMIT, fallback=False):
     """(results, error): the saved places matching query first, then Photon's places nearest first, each
-    {name, lat, lon, distance_km, detail, source}. error: a short text when Photon could not be asked."""
+    {name, lat, lon, distance_km, detail, source}. error: a short reason (reason()) when Photon could not be asked.
+
+    fallback: this is an explicit search (Enter, or the drawer's retry), so an unreachable Photon is worth asking
+    Nominatim - once, never as the player types (its policy forbids autocomplete)."""
     query = (query or "").strip()
     at = (float(lat), float(lon)) if lat is not None and lon is not None else None
     out = [_hit(p["name"], p["lat"], p["lon"], "Saved place", "saved", at)
@@ -89,7 +112,12 @@ def search(query, lat=None, lon=None, user_dir=None, net=None, limit=LIMIT):
         remote = geocode.search(query, lat, lon, net, zoom=BIAS_ZOOM if at else None,
                                 bias=BIAS_SCALE if at else None)
     except Exception as e:              # offline, rate limited: the saved places still answer
-        remote, error = [], f"{type(e).__name__}: {e}"[:120]
+        remote, error = [], reason(e)
+        if fallback:
+            try:
+                remote, error = geocode.search_nominatim(query, lat, lon, net), None
+            except Exception:
+                pass                    # both down: the saved places, and the reason Photon gave
     near = [_hit(r["name"], r["lat"], r["lon"], r.get("detail") or "", "osm", at) for r in remote]
     if at:
         near.sort(key=lambda r: r["distance_km"])
@@ -104,14 +132,18 @@ def search(query, lat=None, lon=None, user_dir=None, net=None, limit=LIMIT):
     return kept, error
 
 
-def search_cached(query, lat=None, lon=None, user_dir=None, net=None, limit=LIMIT, clock=time.monotonic):
-    """search() behind a short cache: the phone asks on every few keystrokes, Photon allows about one a second."""
+def search_cached(query, lat=None, lon=None, user_dir=None, net=None, limit=LIMIT, clock=time.monotonic,
+                  fallback=False):
+    """search() behind a short cache: the phone asks on every few keystrokes, Photon allows about one a second. A
+    failure is kept far less long than an answer (FAIL_S), so a rate-limit blip does not stick for two minutes, and
+    an explicit search (fallback) never takes a cached failure for an answer: it asks again."""
     key = ((query or "").strip().lower(),
            None if lat is None else round(float(lat), 3), None if lon is None else round(float(lon), 3))
     hit = _cache.get(key)
-    if hit and clock() - hit[0] < CACHE_S:
-        return hit[1][:limit], hit[2]
-    results, error = search(query, lat, lon, user_dir, net, limit)
+    if hit and not (fallback and hit[2]):
+        if clock() - hit[0] < (FAIL_S if hit[2] else CACHE_S):
+            return hit[1][:limit], hit[2]
+    results, error = search(query, lat, lon, user_dir, net, limit, fallback)
     if len(_cache) >= CACHE_MAX:
         _cache.clear()
     _cache[key] = (clock(), results, error)
@@ -185,10 +217,11 @@ class PhoneApi:
         if (lat is None) != (lon is None):
             return _json(400, {"error": "lat and lon go together"})
         limit = int(_num(args, "limit") or LIMIT)
-        results, error = search_cached(query, lat, lon, self.user_dir, self.net, max(1, min(limit, 20)))
+        results, error = search_cached(query, lat, lon, self.user_dir, self.net, max(1, min(limit, 20)),
+                                       fallback=args.get("full") == "1")
         self.stats["search"] += 1
         if error and not results:
-            return _json(503, {"error": error})
+            return _json(503, {"error": error, "message": SEARCH_ERROR_TEXT.get(error, SEARCH_ERROR_TEXT["unavailable"])})
         return 200, "application/json", json.dumps(results, separators=(",", ":")).encode()
 
     def _reverse(self, args):

@@ -125,6 +125,56 @@ def search(q, lat=None, lon=None, net=None, country=None, zoom=None, bias=None):
     return parse(json.loads(net.get(u, kind="demand").body.decode("utf-8")))
 
 
+# --------------------------------------------------------------------------- Nominatim (the phone's fallback)
+# Photon is the autocomplete geocoder (several requests a second as you type). When it cannot be asked at all - its
+# edge answers 403 for a while when the shared IP is over its fair use (2026-11-04) - the phone falls back to OSM's
+# own Nominatim for an EXPLICIT search only (Enter, or tapping "try again"), never as you type: Nominatim's usage
+# policy forbids autocomplete. Same data, same credit ("(c) OpenStreetMap contributors"), one request per action.
+NOMINATIM_URL = "https://nominatim.openstreetmap.org/search"
+NOMINATIM_LIMIT = 7
+
+
+def nominatim_url(q, lat=None, lon=None, limit=LIMIT, lang="en"):
+    """The Nominatim search request for text q, biased toward (lat, lon) when given. Pure."""
+    params = [("q", q.strip()), ("format", "jsonv2"), ("limit", str(int(limit))), ("addressdetails", "0"),
+              ("accept-language", lang)]
+    if lat is not None and lon is not None:
+        params += [("lat", f"{float(lat):.4f}"), ("lon", f"{float(lon):.4f}")]
+    return NOMINATIM_URL + "?" + urllib.parse.urlencode(params)
+
+
+def parse_nominatim(data):
+    """[{name, detail, kind, lat, lon}] of a Nominatim jsonv2 answer: its name, then the rest of display_name. Pure."""
+    out = []
+    for f in data if isinstance(data, list) else []:
+        try:
+            lat, lon = float(f["lat"]), float(f["lon"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        if not (-90 <= lat <= 90 and -180 <= lon <= 180):
+            continue
+        name = str(f.get("name") or "").strip()
+        parts = [p.strip() for p in str(f.get("display_name") or "").split(",") if p.strip()]
+        if not name:
+            name = parts[0] if parts else "?"
+            rest = parts[1:]
+        else:
+            rest = [p for p in parts if p != name]
+        out.append({"name": name[:80], "detail": ", ".join(rest[:3])[:80],
+                    "kind": str(f.get("type") or f.get("category") or ""), "lat": round(lat, 6), "lon": round(lon, 6)})
+    return out
+
+
+def search_nominatim(q, lat=None, lon=None, net=None, limit=NOMINATIM_LIMIT, country=None):
+    """Nominatim's places for q (blocking; [] for a short query). For an explicit search only: see above."""
+    q = (q or "").strip()
+    if len(q) < MIN_CHARS:
+        return []
+    net = net if net is not None else netfetch.default_fetcher()
+    u = nominatim_url(q, lat, lon, limit, lang_for(country))
+    return parse_nominatim(json.loads(net.get(u, kind="demand").body.decode("utf-8")))
+
+
 # ------------------------------------------------------------------------------------------- where am I
 # The status bar (the user, 2026-10-15: "location info like street, city, country"): the street from our own map data
 # (nearest_street); the town, state and country from our own copy of Overture's divisions (placenames.py). Photon's

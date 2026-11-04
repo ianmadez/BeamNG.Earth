@@ -986,7 +986,10 @@ ride the map's own route message, so its corridor prefetch and elevation profile
     to the car so nearby ones come first), each with its distance; a typed **latitude, longitude** is offered too,
     parsed by `places.lua` exactly as the big map's search does. Picking a place sets the same destination as the map
     (stock route arrows, Autodrive and all) - the stock minimap keeps showing what it always did. Typing takes the
-    keyboard (no accidental driving while you type).
+    keyboard (no accidental driving while you type). **If the place search cannot be reached** the drawer says so in
+    one plain sentence with a retry arrow (it used to print the raw `FetchFailed: https://photon...`), keeps your
+    recent places usable below it, and an explicit search falls back to OSM's Nominatim once; a failure is now kept
+    8 s instead of two minutes, and Photon is asked at most once a second (its edge rate-limits and answers 403).
   - **Route choices**: with a phone destination OSRM's alternatives come with the same request, tagged **Fastest /
     Main roads / Shortest** (`routing.tag_alternatives`: the share of distance on numbered roads), and a chip in the
     ETA card switches the GPS to that one - arrows and Autodrive included.

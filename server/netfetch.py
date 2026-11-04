@@ -210,9 +210,15 @@ POLICIES = {
                                            offline_ok=True, miss_ttl=None, binary=True, timeout=120.0,
                                            max_attempts=2, base_delay=5.0),
     # Photon (komoot's OpenStreetMap geocoder, made for search-as-you-type; geocode.py): the map's search box,
-    # debounced and cached; a modest rate, a daily cap (fair use of a free public service)
-    "photon.komoot.io": HostPolicy(rate=2.0, burst=4.0, max_conc=1, daily_budget=2000, daily_hard=3000,
+    # debounced and cached; a modest rate, a daily cap (fair use of a free public service). One a second: at 2 a
+    # second its own edge answered 403 and the phone's search looked broken until the block passed (2026-11-04).
+    "photon.komoot.io": HostPolicy(rate=1.0, burst=2.0, max_conc=1, daily_budget=2000, daily_hard=3000,
                                    cache_ttl=7 * DAY, miss_ttl=None, max_wait=5.0, timeout=12.0, max_attempts=1, optional=True),
+    # Nominatim (OSM's own geocoder; geocode.search_nominatim): only ever the phone's explicit search, when Photon
+    # is unreachable. Its usage policy forbids autocomplete, so nothing here asks it as you type: one request per
+    # Enter or tap, at most one a second, with the project's own User-Agent and the OSM credit on screen.
+    "nominatim.openstreetmap.org": HostPolicy(rate=1.0, burst=1.0, max_conc=1, daily_budget=500, daily_hard=800,
+                                              cache_ttl=7 * DAY, miss_ttl=None, max_wait=5.0, timeout=12.0, max_attempts=1, optional=True),
     # OSRM on OpenStreetMap by FOSSGIS (routing.py): one request per GPS destination or re-route; their fair use:
     # ~1 request a second at most, no bulk
     "routing.openstreetmap.de": HostPolicy(rate=0.5, burst=2.0, max_conc=1, daily_budget=300, daily_hard=500,

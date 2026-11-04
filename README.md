@@ -174,7 +174,9 @@ island, glass bezel) over an Apple Maps style map of the real world. Page Up sho
 - **Finding places**: search as you type. Recent places answer at once (four shown, the rest scroll, **X** forgets
   one for good); then saved places and OpenStreetMap places from Photon, nearest first, each with its distance; a
   typed **latitude, longitude** is offered too, parsed by the same code as the **M** map's search. Typing takes the
-  keyboard, so the car does not drive off while you type.
+  keyboard, so the car does not drive off while you type. If Photon cannot be reached (its public edge rate-limits a
+  shared connection), the drawer says so in plain words with a retry arrow, and an explicit search (Enter or the
+  arrow) falls back to OSM's Nominatim once.
 - **Dropping a pin**: double tap the map anywhere; the card names the spot (reverse geocoded) and **Directions**
   starts the route there.
 - **Turn-by-turn, spoken-style**: the green card says what a navigator would say - "Turn left onto Camino de las

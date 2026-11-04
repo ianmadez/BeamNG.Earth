@@ -2705,9 +2705,10 @@ function M.requestRoute(id, lat0, lon0, lat1, lon1, bearing, steps, alternatives
   return true
 end
 -- The phone's search (earthPhone.lua): the saved places, then Photon (phoneapi.py); the answer is phone_search_result.
-function M.requestPhoneSearch(id, q, lat, lon)
+-- full: an explicit search (Enter / try again): if Photon cannot be asked, the server may fall back to Nominatim.
+function M.requestPhoneSearch(id, q, lat, lon, full)
   if not net.isConnected() then return false end
-  net.send({ type = 'phone_search', id = id, q = q, lat = lat, lon = lon })
+  net.send({ type = 'phone_search', id = id, q = q, lat = lat, lon = lon, full = full or nil })
   return true
 end
 function M.takePhoneSearch(id)

@@ -119,5 +119,53 @@ class ErrorTextTest(unittest.TestCase):
         self.assertLess(len(tr.calls), 8, "the breaker opened: later searches asked no one")
 
 
+class NominatimTest(unittest.TestCase):
+    """The phone's fallback geocoder (an explicit search only: Nominatim's policy forbids autocomplete)."""
+
+    def test_url_is_a_jsonv2_search_biased_to_the_car(self):
+        u = urlparse(geocode.nominatim_url("segi plaza", 2.9116, 101.6049))
+        self.assertEqual(u.netloc, "nominatim.openstreetmap.org")
+        q = parse_qs(u.query)
+        self.assertEqual(q["q"], ["segi plaza"])
+        self.assertEqual(q["format"], ["jsonv2"])
+        self.assertEqual(q["lat"], ["2.9116"])
+        self.assertEqual(q["lon"], ["101.6049"])
+        self.assertNotIn("zoom", q, "no autocomplete parameters: this is a plain search")
+
+    def test_url_language_follows_the_country(self):
+        u = geocode.nominatim_url("platz", lang=geocode.lang_for("DE"))
+        self.assertIn("accept-language=de", u)
+        self.assertNotIn("lat=", u, "no position: no bias")
+
+    def test_parse_uses_the_name_then_display_name(self):
+        got = geocode.parse_nominatim(NOMINATIM)
+        self.assertEqual([g["name"] for g in got], ["Segi", "SEGI"],
+                         "a named place, else display_name's first part")
+        self.assertEqual(got[0]["detail"], "Sepang, Selangor, Malaysia")
+        self.assertEqual((got[0]["lat"], got[0]["lon"]), (2.9114, 101.6049))
+        self.assertEqual(set(got[0]), {"name", "detail", "kind", "lat", "lon"})
+
+    def test_parse_survives_a_bad_answer(self):
+        self.assertEqual(geocode.parse_nominatim({"error": "nope"}), [])
+        self.assertEqual(geocode.parse_nominatim(None), [])
+        self.assertEqual(geocode.parse_nominatim([{"lat": "x", "lon": "1"}]), [])
+
+    def test_search_sends_it_and_short_queries_are_not_sent(self):
+        net = FakeNet()
+        net.get = lambda url, kind="demand", lane=None: (net.urls.append(url),
+                                                         types.SimpleNamespace(body=b"[]"))[1]
+        self.assertEqual(geocode.search_nominatim("ab", net=net), [])
+        self.assertEqual(net.urls, [])
+        self.assertEqual(geocode.search_nominatim("segi", 2.9, 101.6, net), [])
+        self.assertIn("nominatim.openstreetmap.org/search", net.urls[-1])
+
+
+NOMINATIM = [
+    {"lat": "2.9114", "lon": "101.6049", "name": "Segi", "type": "village",
+     "display_name": "Segi, Sepang, Selangor, Malaysia"},
+    {"lat": "33.4255", "lon": "-111.9755", "name": "", "type": "office",
+     "display_name": "SEGI, South 48th Street, Tempe, Maricopa County, Arizona, United States"},
+]
+
 if __name__ == "__main__":
     unittest.main()

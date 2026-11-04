@@ -112,9 +112,13 @@ Same pattern as MSFS "anchor space", Cesium origin-shifting, and KSP floating or
   functions the socket's `phone_search` / `phone_reverse` / `route` messages use). The phone's two `route` fields
   (`steps`, `alternatives`) ride the map's own route message, so a phone destination and a map GPS destination are one
   request each — and the map's `route_download` corridor prefetch and `elev` profile still run for both.
-  - `/api/search?q=&lat=&lon=` → `[{name, lat, lon, distance_km, detail, source}]`: the game's saved places
+  - `/api/search?q=&lat=&lon=&full=` → `[{name, lat, lon, distance_km, detail, source}]`: the game's saved places
     (`settings/beamngEarth_places.json`) first, then Photon (`geocode.py`) biased to the car (`zoom=12`,
-    `location_bias_scale=0.4`) and sorted nearest-first; answers are cached 120 s so typing does not hammer Photon.
+    `location_bias_scale=0.4`) and sorted nearest-first; answers are cached 120 s so typing does not hammer Photon,
+    and a failure 8 s. `full=1` marks an explicit search: if Photon cannot be asked, that one request falls back to
+    Nominatim (`geocode.search_nominatim`) — never on a keystroke, since its policy forbids autocomplete. Failures are
+    returned as short codes (`busy`, `offline`, `unavailable`, `phoneapi.reason`), never as exception text: the phone
+    prints them as sentences.
   - `/api/reverse?lat=&lon=` → `{name, detail}`: Photon's nearest street/place, for a dropped pin (coordinates when
     it cannot be asked).
   - `/api/route?lat0=&lon0=&lat1=&lon1=&bearing=` → the OSRM route (`routing.py`); `alternatives=3` adds `routes`,

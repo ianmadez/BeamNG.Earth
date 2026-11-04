@@ -260,7 +260,7 @@ function M.mounted(on)
   return mounted
 end
 
-function M.search(q)
+function M.search(q, full)
   q = tostring(q or ''):sub(1, 80)
   local c = core()
   if not c or not c.requestPhoneSearch then return false end
@@ -268,7 +268,7 @@ function M.search(q)
   local pl = st and st.player
   searchId = searchId + 1
   searchQuery, searchAnswer = q, nil
-  if not c.requestPhoneSearch(searchId, q, pl and pl.lat, pl and pl.lon) then
+  if not c.requestPhoneSearch(searchId, q, pl and pl.lat, pl and pl.lon, full) then
     searchAnswer = { results = {}, error = 'the server is not connected' }
     note('W', 'phone: search "' .. q .. '" not sent (no companion server)')
     send()
