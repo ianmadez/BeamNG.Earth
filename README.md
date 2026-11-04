@@ -177,7 +177,8 @@ island, glass bezel) over an Apple Maps style map of the real world. Page Up sho
   keyboard, so the car does not drive off while you type. If Photon cannot be reached (its public edge rate-limits a
   shared connection), the drawer says so in plain words with a retry arrow, and an explicit search (Enter or the
   arrow) falls back to OSM's Nominatim once.
-- **Dropping a pin**: double tap the map anywhere; the card names the spot (reverse geocoded) and **Directions**
+- **Dropping a pin**: double tap the map anywhere; the card names the spot (reverse geocoded by OSM's Nominatim) and
+  **Directions**
   starts the route there.
 - **Turn-by-turn, spoken-style**: the green card says what a navigator would say - "Turn left onto Camino de las
   Vinas", "then turn right onto Calle Mayor" for two turns close together, "Now, ..." as you reach one, roundabouts

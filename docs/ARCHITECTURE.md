@@ -119,8 +119,9 @@ Same pattern as MSFS "anchor space", Cesium origin-shifting, and KSP floating or
     Nominatim (`geocode.search_nominatim`) — never on a keystroke, since its policy forbids autocomplete. Failures are
     returned as short codes (`busy`, `offline`, `unavailable`, `phoneapi.reason`), never as exception text: the phone
     prints them as sentences.
-  - `/api/reverse?lat=&lon=` → `{name, detail}`: Photon's nearest street/place, for a dropped pin (coordinates when
-    it cannot be asked).
+  - `/api/reverse?lat=&lon=` → `{name, detail}`: OSM's Nominatim reverse (`geocode.point_name`) names a dropped pin
+    (coordinates when it cannot be asked). Photon's own reverse was removed upstream in 1.8, its public edge having
+    started rate-limiting; Nominatim's policy allows lookups (one per dropped pin), not autocomplete.
   - `/api/route?lat0=&lon0=&lat1=&lon1=&bearing=` → the OSRM route (`routing.py`); `alternatives=3` adds `routes`,
     each tagged `Fastest` / `Main roads` / `Shortest` (`routing.tag_alternatives`: the share of distance on numbered
     roads is what "main roads" means to us — OSRM's profile itself is not reweightable on the public server).

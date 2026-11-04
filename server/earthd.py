@@ -4678,8 +4678,8 @@ class Connection:
         self.send(out)
 
     async def phone_reverse(self, msg):
-        """A dropped pin's name {"id", "lat", "lon"} -> phone_reverse_result {"id", "name", "detail"}: Photon's
-        nearest place (phoneapi.reverse), or the coordinates when it cannot be asked."""
+        """A dropped pin's name {"id", "lat", "lon"} -> phone_reverse_result {"id", "name", "detail"}: the nearest
+        named place (phoneapi.reverse), or the coordinates when it cannot be asked."""
         out = {"type": "phone_reverse_result", "id": msg.get("id"), "name": "", "detail": ""}
         try:
             out.update(await asyncio.get_running_loop().run_in_executor(

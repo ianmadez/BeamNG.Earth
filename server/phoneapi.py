@@ -151,7 +151,7 @@ def search_cached(query, lat=None, lon=None, user_dir=None, net=None, limit=LIMI
 
 
 def reverse(lat, lon, net=None):
-    """{name, detail} of the place at (lat, lon) for a dropped pin; a coordinates label when Photon fails."""
+    """{name, detail} of the place at (lat, lon) for a dropped pin; a coordinates label when it cannot be asked."""
     try:
         name, detail = geocode.point_name(lat, lon, net)
     except Exception:
