@@ -135,7 +135,11 @@ Same pattern as MSFS "anchor space", Cesium origin-shifting, and KSP floating or
 - Phone UI app `ui/modules/apps/BeamNGEarthPhone/` (`app.json` / `app.html` / `app.css` / `app.js` / `app.png`): an
   AngularJS UI app, the only code that draws; every class is `bp-` prefixed and scoped under `.bngPhone` (app
   stylesheets are global — a bare `.tile` once broke another app's map). It cannot fetch http, so its tiles come from
-  `settings.mapTiles` (files the server wrote) and its data from the `BeamNGEarthPhone` hook below.
+  `settings.mapTiles` (files the server wrote) and its data from the `BeamNGEarthPhone` hook below. Its map is two
+  nested transforms: `.bp-zoomable` scales between tile levels (the wheel), `.bp-rot` turns the whole map under the
+  car in **heading up** mode (the compass button, remembered; the route canvas and the tiles are its children, so
+  they turn together, the angle stays continuous so the map takes the short way round, and the tiles asked for are
+  the screen's bounding box once turned; pointer and drag offsets are turned back off it).
 - Extension `beamngEarth_earthPhone` (`lua/ge/extensions/beamngEarth/earthPhone.lua`), the bridge: Page Up toggles
   it (`actions/beamngEarth.json`, `keyboard_beamngEarth.json`), and while it is on screen it sends the app one
   `BeamNGEarthPhone` hook 5x a second with the car's position and heading, the road's speed limit (from the AI road

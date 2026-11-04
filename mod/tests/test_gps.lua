@@ -163,6 +163,37 @@ do -- the route request carries the car's heading (a nil global here once broke 
   G.clear()
   beamngEarth_core, getPlayerVehicle = savedCore, savedGet
 end
+do -- a planned route on screen: every check reads the car's speed (a nil global was a fatal Lua error once a route came)
+  local savedCore, savedGet = rawget(_G, 'beamngEarth_core'), rawget(_G, 'getPlayerVehicle')
+  local savedCheck, answer, asked = G.CHECK_S, nil, nil
+  beamngEarth_core = {
+    requestRoute = function(id, la0, lo0, la1, lo1, b, steps, alts)
+      asked = { steps = steps, alternatives = alts }; return true end,
+    takeRoute = function() local r = answer; answer = nil; return r end }
+  getPlayerVehicle = function()
+    return { getDirectionVector = function() return { x = 0, y = 1, z = 0 } end,
+             getVelocity = function() return { x = 0, y = 0, z = 0 } end }
+  end
+  local function enu(_, lat, lon) return (lat - 39.29) * 111000, (lon + 76.6) * 80000, 0 end
+  local anchor = { geodeticToEnu = enu }
+  local pl = { x = 0, y = 0, lat = 39.29, lon = -76.6, speed = 14 }
+  G.CHECK_S = 0
+  G.clear()
+  G.setDestination(39.30, -76.6, 'card test', true)
+  G.update(anchor, pl)
+  T.check(asked and asked.steps == true and asked.alternatives == G.ALTERNATIVES,
+    'a phone destination asks for the turn-by-turn steps and the route choices with its route')
+  answer = { points = { { 39.29, -76.6 }, { 39.30, -76.6 } }, dist = 1110, dur = 90,
+             steps = { { at = 0, dist = 1110, type = 'depart' }, { at = 1110, dist = 0, type = 'arrive' } } }
+  local ok, err = pcall(G.update, anchor, pl)        -- the route arrives: the checks after it read the speed
+  T.check(ok, 'a planned route on screen updates: ' .. tostring(err))
+  T.check(G.steps() and #G.steps() == 2, 'the route carries its steps to the phone')
+  ok, err = pcall(G.update, anchor, pl)
+  T.check(ok, 'and at the next check too: ' .. tostring(err))
+  G.clear()
+  G.CHECK_S = savedCheck
+  beamngEarth_core, getPlayerVehicle = savedCore, savedGet
+end
 do -- the minimap's distance counts the whole planned route, not only the arrows' reach
   local rp = { path = { { distToTarget = 2700 }, { distToTarget = 1000 }, { distToTarget = 0 } }, distance = 2700 }
   G.addRest(rp, 480000)

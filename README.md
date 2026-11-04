@@ -171,6 +171,10 @@ island, glass bezel) over an Apple Maps style map of the real world. Page Up sho
   it). The wheel zooms continuously (a notch is a quarter level; tiles scale between levels).
 - **Where you are**: the car in real time (position and heading - never its speed), the road's speed limit from the
   AI road graph (mph or km/h by country), and a re-center button that pins the map back on the car.
+- **Heading up (the compass button)**: turn the map with the car, so the way ahead is always up the screen (the car
+  and the route point up, the destination and dropped pins stay upright); tap it again for north up. The setting is
+  remembered. The map turns the short way round when the car crosses north, and the wheel, dragging and double-tap
+  pins all work in the turned map.
 - **Finding places**: search as you type. Recent places answer at once (four shown, the rest scroll, **X** forgets
   one for good); then saved places and OpenStreetMap places from Photon, nearest first, each with its distance; a
   typed **latitude, longitude** is offered too, parsed by the same code as the **M** map's search. Typing takes the

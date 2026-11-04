@@ -30,6 +30,9 @@ upstream dropped Photon's reverse lookup, and a failed place search now reuses u
     ETA card switches the GPS to that one - arrows and Autodrive included.
   - **Double tap the map** to drop a pin; the card names it (reverse geocoded by OSM's Nominatim) and its
     **Directions** button starts the route there.
+  - **Heading up**: the compass button turns the whole map with the car (the way ahead is up the screen), and north
+    up on the next tap; it is remembered, it turns the short way round when the car crosses north, and the
+    destination and dropped pins stay upright on the turned map.
   - **Turn-by-turn**: OSRM's steps come with the route the GPS already asks for (no second request), so the green
     card says what a navigator would say - "Turn left onto Camino de las Viñas", "then turn right onto Calle Mayor"
     for two turns close together, "Now, ..." as you reach it, roundabouts by their exit number - with the distance to
@@ -48,6 +51,14 @@ upstream dropped Photon's reverse lookup, and a failed place search now reuses u
   port as the map tiles): a JSON array of `{name, lat, lon, distance_km, ...}`, a dropped pin's `{name, detail}` and
   the road route with its steps, for tools and tests. The phone itself goes through the socket (the game's UI cannot
   reach http).
+
+### Fixed
+- **A fatal Lua error with a route on screen** (`gps.lua`: "attempt to perform arithmetic on global 'vx' (a nil
+  value)"): the check that reads the car's speed to spot a U-turn along the route used variables that did not exist,
+  so every GPS update with a planned route raised the game's fatal error dialog. It reads the player's own speed now,
+  and `mod/tests/test_gps.lua` runs a planned route to keep it that way.
+- **The phone's turn-by-turn card** showed the distance and ETA but no maneuver: the destination set from the phone
+  asked for the steps but never recorded that it had, so the server never sent them. It does now.
 ## 1.8.1 beta (2026-11-04)
 
 Works with BeamNG.drive 0.40.4.

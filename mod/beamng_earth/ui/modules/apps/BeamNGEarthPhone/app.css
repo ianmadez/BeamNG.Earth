@@ -96,6 +96,16 @@
   will-change: transform;
 }
 
+/* heading up: the whole map turned under the car (the other wrapper, so this turn is never at odds with the wheel's
+   scale; the angle is left continuous in app.js, so a car turning across north turns the map the short way) */
+.bngPhone .bp-rot {
+  position: absolute;
+  inset: 0;
+  transform-origin: 50% 50%;
+  transition: transform 180ms linear;
+  will-change: transform;
+}
+
 .bngPhone .bp-hint {
   position: absolute;
   left: 14px;
@@ -408,15 +418,18 @@
 }
 
 .bngPhone .bp-recenter { bottom: 88px; }
-.bngPhone .bp-layers { bottom: 144px; }
-.bngPhone .bp-search-button { bottom: 200px; }
+.bngPhone .bp-heading { bottom: 144px; }
+.bngPhone .bp-layers { bottom: 200px; }
+.bngPhone .bp-search-button { bottom: 256px; }
+/* the compass, filled in while the map turns with the car */
+.bngPhone .bp-heading.is-on { color: #fff; background: #0a84ff; }
 
 /* --- layer switcher ------------------------------------------------------------------------ */
 .bngPhone .bp-layer-sheet {
   position: absolute;
   z-index: 6;
   right: 14px;
-  bottom: 200px;
+  bottom: 256px;
   width: 152px;
   padding: 5px;
   border-radius: 16px;
@@ -758,15 +771,17 @@
 /* the button stack and the limit move up while the ETA sheet is out (it can carry the route chips too) */
 .bngPhone .is-routing .bp-limit { bottom: 148px; }
 .bngPhone .is-routing .bp-recenter { bottom: 214px; }
-.bngPhone .is-routing .bp-layers { bottom: 270px; }
-.bngPhone .is-routing .bp-search-button { bottom: 326px; }
-.bngPhone .is-routing .bp-layer-sheet { bottom: 326px; }
+.bngPhone .is-routing .bp-heading { bottom: 270px; }
+.bngPhone .is-routing .bp-layers { bottom: 326px; }
+.bngPhone .is-routing .bp-search-button { bottom: 382px; }
+.bngPhone .is-routing .bp-layer-sheet { bottom: 382px; }
 
 /* and while a dropped pin's card is out */
 .bngPhone .has-pin .bp-recenter { bottom: 196px; }
-.bngPhone .has-pin .bp-layers { bottom: 252px; }
-.bngPhone .has-pin .bp-search-button { bottom: 308px; }
-.bngPhone .has-pin .bp-layer-sheet { bottom: 308px; }
+.bngPhone .has-pin .bp-heading { bottom: 252px; }
+.bngPhone .has-pin .bp-layers { bottom: 308px; }
+.bngPhone .has-pin .bp-search-button { bottom: 364px; }
+.bngPhone .has-pin .bp-layer-sheet { bottom: 364px; }
 
 @media (prefers-reduced-motion: reduce) {
   .bngPhone .bp-island,
@@ -776,6 +791,7 @@
   .bngPhone .bp-result,
   .bngPhone .bp-go,
   .bngPhone .bp-pin-x,
+  .bngPhone .bp-rot,
   .bngPhone .bp-layer-opt { transition: none; }
   .bngPhone .bp-round:active,
   .bngPhone .bp-end:active,

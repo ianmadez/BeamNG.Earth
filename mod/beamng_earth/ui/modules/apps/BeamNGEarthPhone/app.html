@@ -6,11 +6,13 @@
         <div class="bp-map" ng-mousedown="dragStart($event)"
              ng-class="{'is-satellite': layer === 'satellite'}">
           <div class="bp-zoomable">
-            <div class="bp-tiles">
-              <img class="bp-tile" ng-repeat="t in tiles track by t.key" ng-src="{{t.src}}"
-                   ng-style="{left: t.left + 'px', top: t.top + 'px'}" />
+            <div class="bp-rot">
+              <div class="bp-tiles">
+                <img class="bp-tile" ng-repeat="t in tiles track by t.key" ng-src="{{t.src}}"
+                     ng-style="{left: t.left + 'px', top: t.top + 'px'}" />
+              </div>
+              <canvas class="bp-overlay"></canvas>
             </div>
-            <canvas class="bp-overlay"></canvas>
           </div>
           <div class="bp-hint" ng-if="!ui.connected">No companion server: places and the route need it</div>
         </div>
@@ -84,6 +86,10 @@
 
         <button class="bp-round bp-recenter" ng-click="recenter()" title="Re-center on the car">
           <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7" /><circle cx="12" cy="12" r="2.2" class="solid" /><path d="M12 2v3M22 12h-3M12 22v-3M2 12h3" /></svg>
+        </button>
+        <button class="bp-round bp-heading" ng-click="toggleHeadingUp()" ng-class="{'is-on': headingUp}"
+                title="{{headingUp ? 'North up' : 'Heading up'}}">
+          <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" /><path d="M15.5 8.5l-2.2 5.3-5.3 2.2 2.2-5.3z" class="solid" /></svg>
         </button>
         <button class="bp-round bp-layers" ng-click="toggleLayers()" title="{{layerName}} map">
           <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M12 3l9 5-9 5-9-5 9-5z" /><path d="M3 13l9 5 9-5" /></svg>

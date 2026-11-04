@@ -274,6 +274,7 @@ end
 function M.setDestination(lat, lon, name, steps)
   lat, lon = tonumber(lat), tonumber(lon)
   if not lat or not lon then return false end
+  wantSteps = steps and true or false      -- the phone's destination: turn-by-turn steps with the route
   dest = { lat = lat, lon = lon, name = name }
   route, routeError, pendingId, enu, progress, info, progressS = nil, nil, nil, nil, 1, nil, nil
   leastRemaining, routeFails = nil, 0
@@ -763,7 +764,7 @@ function M.backtracking(least, remaining, speed)
   return remaining - least > M.BACKTRACK_M and speed > M.BACKTRACK_MPS, least
 end
 
--- Every frame (anchor: the current geodesy anchor; player: {x, y, lat, lon}): the route kept to the destination.
+-- Every frame (anchor: the current geodesy anchor; player: {x, y, lat, lon, speed}): the route kept to the destination.
 function M.update(anchor, player)
   if not dest or not anchor or not player then return end
   local now = os.clock()
@@ -819,7 +820,7 @@ function M.update(anchor, player)
     info.remaining = remaining + off
     info.off = off
     if M.arrived(dist, remaining, off) then arrive() return end
-    local speed = math.sqrt(vx * vx + vy * vy)
+    local speed = tonumber(player.speed) or 0
     local back
     back, leastRemaining = M.backtracking(leastRemaining, info.remaining, speed)
     if back and not pendingId and now - lastRequest > M.REROUTE_S then

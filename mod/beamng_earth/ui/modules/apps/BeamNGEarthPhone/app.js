@@ -27,6 +27,7 @@ angular.module('beamng.apps')
       var WHEEL_SENS = 0.0022                  // wheel px -> zoom levels: a notch is a quarter step, a trackpad finer
       var ROUTE_BLUE = '#0a84ff'
       var LAYER_KEY = 'beamngEarth.phone.layer'
+      var HEADING_KEY = 'beamngEarth.phone.headingUp'
       var RECENT_KEY = 'beamngEarth.phone.recent'
       var RECENT_MAX = 12                      // kept; the drawer shows 4 before it scrolls inside
       var RECENT_SHOWN = 4
@@ -57,16 +58,19 @@ angular.module('beamng.apps')
       var follow = true
       var width = 0, height = 0, origin = { left: 0, top: 0 }, scale = 1
       var layer = readLayer()
+      var headingUp = readHeadingUp()          // the map turned with the car (the compass button)
+      var bearing = 0                          // deg the map is turned by: 0 north up, kept continuous (no 359 -> 0 spin)
       var recents = readRecents()
       var ready = {}
       var routePoints = null, routeVersion = -1
       var typeTimer = null
-      var hostEl, fitEl, phoneEl, mapEl, canvas, ctx, zoomEl
+      var hostEl, fitEl, phoneEl, mapEl, canvas, ctx, zoomEl, rotEl
 
       scope.ui = ui
       scope.q = ''
       scope.searchOpen = true
       scope.layersOpen = false
+      scope.headingUp = headingUp
       scope.tiles = []
       scope.glyph = { show: false, paths: [], style: {}, road: '' }
       scope.eta = { value: '', unit: '' }
@@ -93,6 +97,12 @@ angular.module('beamng.apps')
       }
       function saveLayer(v) {
         try { localStorage.setItem(LAYER_KEY, v) } catch (e) { /* storage blocked: not kept */ }
+      }
+      function readHeadingUp() {
+        try { return localStorage.getItem(HEADING_KEY) === '1' } catch (e) { return false }
+      }
+      function saveHeadingUp(on) {
+        try { localStorage.setItem(HEADING_KEY, on ? '1' : '0') } catch (e) { /* not kept */ }
       }
       function readRecents() {
         try {
@@ -177,8 +187,9 @@ angular.module('beamng.apps')
       }
 
       function visibleTiles() {
-        var x0 = Math.floor(origin.left / TILE), x1 = Math.floor((origin.left + width) / TILE)
-        var y0 = Math.floor(origin.top / TILE), y1 = Math.floor((origin.top + height) / TILE)
+        var pad = tilePad()                  // a turned map reaches past the square's own edges at its corners
+        var x0 = Math.floor((origin.left - pad.x) / TILE), x1 = Math.floor((origin.left + width + pad.x) / TILE)
+        var y0 = Math.floor((origin.top - pad.y) / TILE), y1 = Math.floor((origin.top + height + pad.y) / TILE)
         var n = Math.pow(2, view.z), out = []
         for (var x = x0; x <= x1; x++) {
           for (var y = y0; y <= y1; y++) {
@@ -202,6 +213,34 @@ angular.module('beamng.apps')
         return { x: toX(lon, view.z) - origin.left, y: toY(lat, view.z) - origin.top }
       }
 
+      // ---- heading up (the compass button) -----------------------------------------------------
+      // The map is turned under the car, so the way it faces is up the screen; north up is the other setting. The
+      // angle stays continuous (a car turning across north turns the map the short way round, not 359 degrees back)
+      // and the CSS transition on .bp-rot eases each 200 ms update into the next.
+      function turnMap() {
+        var h = headingUp && ui.player ? ui.player.heading : null
+        var target = (h === null || h === undefined) ? 0 : -h
+        while (target - bearing > 180) target -= 360
+        while (target - bearing < -180) target += 360
+        bearing = target
+        if (rotEl) rotEl.style.transform = bearing ? 'rotate(' + bearing.toFixed(2) + 'deg)' : ''
+      }
+
+      // The tiles the turned map can reach: the screen as the map sees it, its bounding box around the same centre.
+      function tilePad() {
+        if (!bearing) return { x: 0, y: 0 }
+        var a = bearing * Math.PI / 180
+        var c = Math.abs(Math.cos(a)), s = Math.abs(Math.sin(a))
+        return { x: (width * c + height * s - width) / 2, y: (width * s + height * c - height) / 2 }
+      }
+
+      // a screen offset (from the centre) as the map's own, turning the map's angle back off it
+      function untilt(dx, dy) {
+        if (!bearing) return { x: dx, y: dy }
+        var a = bearing * Math.PI / 180, c = Math.cos(a), s = Math.sin(a)
+        return { x: dx * c + dy * s, y: -dx * s + dy * c }
+      }
+
       // ---- tiles -------------------------------------------------------------------------------
       function tileSrc(L, t) {
         var base = TILE_DIR + (L.id === 'sat' ? '' : L.id + '/')
@@ -215,6 +254,7 @@ angular.module('beamng.apps')
         if (!width) return
         view.z = tileZ()
         originOf()
+        turnMap()
         var layers = LAYERS[layer], list = [], tiles = visibleTiles()
         for (var i = 0; i < tiles.length; i++) {
           for (var j = 0; j < layers.length; j++) {
@@ -342,53 +382,69 @@ angular.module('beamng.apps')
         if (!routePoints || !routePoints.length) return
         var p = toScreen(routePoints[routePoints.length - 1][0], routePoints[routePoints.length - 1][1])
         if (p.x < -30 || p.y < -30 || p.x > width + 30 || p.y > height + 30) return
-        ctx.beginPath()
-        ctx.moveTo(p.x, p.y)
-        ctx.lineTo(p.x - 5, p.y - 11)
-        ctx.lineTo(p.x + 5, p.y - 11)
-        ctx.closePath()
-        ctx.fillStyle = '#ff3b30'
-        ctx.fill()
-        ctx.beginPath()
-        ctx.arc(p.x, p.y - 16, 8.5, 0, Math.PI * 2)
-        ctx.fillStyle = '#ff3b30'
-        ctx.fill()
-        ctx.lineWidth = 3
-        ctx.strokeStyle = '#fff'
-        ctx.stroke()
+        upright(p.x, p.y, function () {
+          ctx.beginPath()
+          ctx.moveTo(p.x, p.y)
+          ctx.lineTo(p.x - 5, p.y - 11)
+          ctx.lineTo(p.x + 5, p.y - 11)
+          ctx.closePath()
+          ctx.fillStyle = '#ff3b30'
+          ctx.fill()
+          ctx.beginPath()
+          ctx.arc(p.x, p.y - 16, 8.5, 0, Math.PI * 2)
+          ctx.fillStyle = '#ff3b30'
+          ctx.fill()
+          ctx.lineWidth = 3
+          ctx.strokeStyle = '#fff'
+          ctx.stroke()
+        })
       }
 
-      // a double tap's pin: a dark teardrop with a white ring, so it reads on the light map and the imagery alike
+      // a dropped pin (a double tap on the map): a dark teardrop with a white ring, so it reads on the light map and the
+      // imagery alike. It stays upright when the map is turned under it (its tip keeps its place on the map).
       function drawDroppedPin() {
         var d = ui.pin
         if (!d || ui.route) return
         var p = toScreen(d.lat, d.lon)
         if (p.x < -30 || p.y < -30 || p.x > width + 30 || p.y > height + 30) return
+        upright(p.x, p.y, function () {
+          ctx.save()
+          ctx.shadowColor = 'rgba(0,0,0,0.45)'
+          ctx.shadowBlur = 6
+          ctx.shadowOffsetY = 2
+          ctx.beginPath()
+          ctx.moveTo(p.x, p.y)
+          ctx.lineTo(p.x - 6, p.y - 13)
+          ctx.lineTo(p.x + 6, p.y - 13)
+          ctx.closePath()
+          ctx.fillStyle = '#2c2c2e'
+          ctx.fill()
+          ctx.beginPath()
+          ctx.arc(p.x, p.y - 19, 9.5, 0, Math.PI * 2)
+          ctx.fillStyle = '#2c2c2e'
+          ctx.fill()
+          ctx.restore()
+          ctx.beginPath()
+          ctx.arc(p.x, p.y - 19, 9.5, 0, Math.PI * 2)
+          ctx.lineWidth = 2.5
+          ctx.strokeStyle = '#fff'
+          ctx.stroke()
+          ctx.beginPath()
+          ctx.arc(p.x, p.y - 19, 3.4, 0, Math.PI * 2)
+          ctx.fillStyle = '#fff'
+          ctx.fill()
+        })
+      }
+
+      // keeps a map symbol upright while the map itself is turned (pins, not the car: its cone turns with the map)
+      function upright(x, y, fn) {
+        if (!bearing) { fn(); return }
         ctx.save()
-        ctx.shadowColor = 'rgba(0,0,0,0.45)'
-        ctx.shadowBlur = 6
-        ctx.shadowOffsetY = 2
-        ctx.beginPath()
-        ctx.moveTo(p.x, p.y)
-        ctx.lineTo(p.x - 6, p.y - 13)
-        ctx.lineTo(p.x + 6, p.y - 13)
-        ctx.closePath()
-        ctx.fillStyle = '#2c2c2e'
-        ctx.fill()
-        ctx.beginPath()
-        ctx.arc(p.x, p.y - 19, 9.5, 0, Math.PI * 2)
-        ctx.fillStyle = '#2c2c2e'
-        ctx.fill()
+        ctx.translate(x, y)
+        ctx.rotate(-bearing * Math.PI / 180)
+        ctx.translate(-x, -y)
+        fn()
         ctx.restore()
-        ctx.beginPath()
-        ctx.arc(p.x, p.y - 19, 9.5, 0, Math.PI * 2)
-        ctx.lineWidth = 2.5
-        ctx.strokeStyle = '#fff'
-        ctx.stroke()
-        ctx.beginPath()
-        ctx.arc(p.x, p.y - 19, 3.4, 0, Math.PI * 2)
-        ctx.fillStyle = '#fff'
-        ctx.fill()
       }
 
       function drawPlayer() {
@@ -445,6 +501,7 @@ angular.module('beamng.apps')
         if (!width) return
         view.z = tileZ()
         originOf()
+        turnMap()
         if (zoomEl) zoomEl.style.transform = 'scale(' + zoomScale().toFixed(4) + ')'
         scope.tiles = tileList()
         draw()
@@ -560,12 +617,13 @@ angular.module('beamng.apps')
       var dragging = null, tap = null
       var TAP_MS = 350, TAP_PX = 12, TAP_MOVE = 5        // a double tap, detected here (the game's browser
                                                         // does not always raise dblclick inside an app)
-      // a screen point (client px) as lat, lon: undo the frame's scale and the continuous zoom's
+      // a screen point (client px) as lat, lon: undo the frame's scale, the map's turn and the continuous zoom's
       function pointOf(ev) {
         var box = mapEl.getBoundingClientRect()
         var k = zoomScale()
         var px = (ev.clientX - box.left) / scale, py = (ev.clientY - box.top) / scale
-        var ux = width / 2 + (px - width / 2) / k, uy = height / 2 + (py - height / 2) / k
+        var u = untilt(px - width / 2, py - height / 2)
+        var ux = width / 2 + u.x / k, uy = height / 2 + u.y / k
         return { lat: latOf(uy + origin.top, view.z), lon: toLon(ux + origin.left, view.z) }
       }
       function dropPinAt(ev) {
@@ -591,8 +649,9 @@ angular.module('beamng.apps')
         if (Math.abs(ev.clientX - dragging.x) > TAP_MOVE || Math.abs(ev.clientY - dragging.y) > TAP_MOVE) {
           dragging.moved = true
         }
-        var cx = toX(dragging.lon, z) - (ev.clientX - dragging.x) / (scale * k)
-        var cy = toY(dragging.lat, z) - (ev.clientY - dragging.y) / (scale * k)
+        var d = untilt((ev.clientX - dragging.x) / (scale * k), (ev.clientY - dragging.y) / (scale * k))
+        var cx = toX(dragging.lon, z) - d.x
+        var cy = toY(dragging.lat, z) - d.y
         view.lon = toLon(cx, z)
         view.lat = latOf(cy, z)
         scope.$applyAsync(render)
@@ -668,6 +727,13 @@ angular.module('beamng.apps')
         render()
       }
       scope.toggleLayers = function () { scope.layersOpen = !scope.layersOpen }
+      // the compass: the map turned with the car (heading up) or kept north up
+      scope.toggleHeadingUp = function () {
+        headingUp = !headingUp
+        scope.headingUp = headingUp
+        saveHeadingUp(headingUp)
+        render()
+      }
       scope.setLayer = function (id) {
         scope.layersOpen = false
         if (!LAYERS[id] || id === layer) return
@@ -808,6 +874,7 @@ angular.module('beamng.apps')
       mapEl = hostEl.querySelector('.bp-map')
       canvas = hostEl.querySelector('.bp-overlay')
       zoomEl = hostEl.querySelector('.bp-zoomable')
+      rotEl = hostEl.querySelector('.bp-rot')
       if (canvas) ctx = canvas.getContext('2d')
       if (mapEl) {
         mapEl.addEventListener('wheel', onWheel, { passive: false })
