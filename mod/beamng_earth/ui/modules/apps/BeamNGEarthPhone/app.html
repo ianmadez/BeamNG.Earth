@@ -16,7 +16,7 @@
         </div>
 
         <div class="bp-island" ng-class="{'is-wide': glyph.show}">
-          <svg class="bp-glyph" viewBox="0 0 24 24" ng-if="glyph.show">
+          <svg width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="bp-glyph" viewBox="0 0 24 24" ng-if="glyph.show">
             <g ng-style="glyph.style">
               <path ng-repeat="d in glyph.paths" ng-attr-d="{{d}}" />
             </g>
@@ -24,7 +24,7 @@
         </div>
 
         <div class="bp-banner" ng-if="glyph.show" ng-class="{'is-now': captionNow}">
-          <svg class="bp-banner-glyph" viewBox="0 0 24 24">
+          <svg width="30" height="30" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="bp-banner-glyph" viewBox="0 0 24 24">
             <g ng-style="glyph.style">
               <path ng-repeat="d in glyph.paths" ng-attr-d="{{d}}" />
             </g>
@@ -52,7 +52,7 @@
               <span class="bp-row-main">
                 <span class="bp-name">{{searchMessage()}}</span>
               </span>
-              <svg class="bp-retry" viewBox="0 0 24 24">
+              <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="bp-retry" viewBox="0 0 24 24">
                 <path d="M20.5 12a8.5 8.5 0 10-2.5 6" /><path d="M20.5 5.5v5h-5" />
               </svg>
             </div>
@@ -73,7 +73,7 @@
                     <span class="bp-meta">{{r.detail}}</span>
                   </span>
                   <button class="bp-forget" ng-click="forget(r, $event)" title="Forget this place">
-                    <svg viewBox="0 0 24 24"><path d="M7 7l10 10M17 7L7 17" /></svg>
+                    <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M7 7l10 10M17 7L7 17" /></svg>
                   </button>
                 </div>
               </div>
@@ -83,13 +83,13 @@
         </div>
 
         <button class="bp-round bp-recenter" ng-click="recenter()" title="Re-center on the car">
-          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7" /><circle cx="12" cy="12" r="2.2" class="solid" /><path d="M12 2v3M22 12h-3M12 22v-3M2 12h3" /></svg>
+          <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7" /><circle cx="12" cy="12" r="2.2" class="solid" /><path d="M12 2v3M22 12h-3M12 22v-3M2 12h3" /></svg>
         </button>
         <button class="bp-round bp-layers" ng-click="toggleLayers()" title="{{layerName}} map">
-          <svg viewBox="0 0 24 24"><path d="M12 3l9 5-9 5-9-5 9-5z" /><path d="M3 13l9 5 9-5" /></svg>
+          <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M12 3l9 5-9 5-9-5 9-5z" /><path d="M3 13l9 5 9-5" /></svg>
         </button>
         <button class="bp-round bp-search-button" ng-click="toggleSearch()" ng-if="!searchOpen" title="Search">
-          <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5" /><path d="M16 16l5 5" /></svg>
+          <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5" /><path d="M16 16l5 5" /></svg>
         </button>
 
         <div class="bp-layer-sheet" ng-if="layersOpen">
@@ -97,7 +97,7 @@
                ng-click="selectLayer(o)">
             <span class="bp-swatch bp-swatch-{{o.id}}"></span>
             <span class="bp-layer-name">{{o.name}}</span>
-            <svg class="bp-tick" viewBox="0 0 24 24" ng-if="o.id === layer"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>
+            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="bp-tick" viewBox="0 0 24 24" ng-if="o.id === layer"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>
           </div>
         </div>
 
@@ -112,11 +112,11 @@
             <span class="bp-pin-detail" ng-if="pinCard.detail">{{pinCard.detail}}</span>
           </div>
           <button class="bp-go" ng-click="directions()" ng-class="{'is-busy': pinBusy}" ng-disabled="pinBusy">
-            <svg viewBox="0 0 24 24"><path d="M12 21V6" /><path d="M7 11l5-5 5 5" /></svg>
+            <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M12 21V6" /><path d="M7 11l5-5 5 5" /></svg>
             <span>{{pinBusy ? 'Planning&hellip;' : 'Directions'}}</span>
           </button>
           <button class="bp-pin-x" ng-click="closePin()" title="Remove the pin">
-            <svg viewBox="0 0 24 24"><path d="M7 7l10 10M17 7L7 17" /></svg>
+            <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M7 7l10 10M17 7L7 17" /></svg>
           </button>
         </div>
 
